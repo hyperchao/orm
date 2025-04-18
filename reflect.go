@@ -6,20 +6,43 @@ import (
 	"sync"
 )
 
-const tagName = "orm"
-
 var cache sync.Map
 
+type empty struct{}
+
+func (empty) Scan(any) error {
+	return nil
+}
+
+func isStructOrIndirectToStruct(r reflect.Type) bool {
+	for r.Kind() == reflect.Ptr {
+		r = r.Elem()
+	}
+	return r.Kind() == reflect.Struct
+}
+
+// indirect returns the item at the end of pointer indirection.
+// when meet a nil pointer, create a zero value for it to point to
+func indirect(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
+	return v
+}
+
 // extract a slice of interfaces from struct for sql.Rows.Scan to use
-func getColumnPlaceholder(v reflect.Value, columns []string) []interface{} {
+func getColumnPlaceholder(conf *config, v reflect.Value, columns []string) []any {
 	if len(columns) == 0 {
 		return nil
 	}
 
 	r := make([]interface{}, len(columns))
-	mapping := getColumnIndexMapping(v.Type())
-	for i, cloumn := range columns {
-		indexes := mapping[cloumn]
+	mapping := getColumnIndexMapping(conf, v)
+	for i, column := range columns {
+		indexes := mapping[column]
 		if len(indexes) > 0 {
 			f := v.FieldByIndex(indexes)
 			r[i] = f.Addr().Interface()
@@ -31,25 +54,28 @@ func getColumnPlaceholder(v reflect.Value, columns []string) []interface{} {
 	return r
 }
 
-func getColumnIndexMapping(t reflect.Type) map[string][]int {
+func getColumnIndexMapping(conf *config, t reflect.Value) map[string][]int {
 	ret, ok := cache.Load(t)
 	if ok {
 		return ret.(map[string][]int)
 	}
 	mapping := make(map[string][]int)
-	walk(t, nil, mapping)
+	walk(conf, t, nil, mapping)
 	cache.Store(t, mapping)
 	return mapping
 }
 
-func walk(t reflect.Type, path []int, mapping map[string][]int) {
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
+func walk(conf *config, v reflect.Value, path []int, mapping map[string][]int) {
+	if v.Kind() != reflect.Struct {
+		return
+	}
+	for i := 0; i < v.Type().NumField(); i++ {
+		f := v.Type().Field(i)
 		if f.PkgPath != "" {
 			// skip unexported field
 			continue
 		}
-		fieldName := f.Tag.Get(tagName)
+		fieldName := f.Tag.Get(conf.tagName)
 		fieldName = strings.TrimSpace(fieldName)
 		if fieldName != "" {
 			_, ok := mapping[fieldName]
@@ -59,15 +85,8 @@ func walk(t reflect.Type, path []int, mapping map[string][]int) {
 				indexes = append(indexes, i)
 				mapping[fieldName] = indexes
 			}
-		}
-		if f.Type.Kind() == reflect.Struct {
-			walk(f.Type, append(path, i), mapping)
+		} else if isStructOrIndirectToStruct(f.Type) {
+			walk(conf, indirect(v.Field(i)), append(path, i), mapping)
 		}
 	}
 }
-
-// func assertKind(t reflect.Type, k reflect.Kind) {
-// if t.Kind() != k {
-// panic("expect kind: %d")
-// }
-// }
