@@ -90,3 +90,7 @@ func walk(conf *config, v reflect.Value, path []int, mapping map[string][]int) {
 		}
 	}
 }
+
+func isSlice(v any) bool {
+	return reflect.TypeOf(v).Kind() == reflect.Slice
+}

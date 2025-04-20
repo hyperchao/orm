@@ -4,6 +4,7 @@ type config struct {
 	tagName              string
 	enableOptimisticLock bool
 	versionTag           string
+	rewriteQuery         bool
 }
 
 var (
@@ -11,6 +12,7 @@ var (
 		tagName:              "orm",
 		enableOptimisticLock: false,
 		versionTag:           "version",
+		rewriteQuery:         true,
 	}
 )
 
@@ -26,22 +28,30 @@ func SetVersionTag(tag string) {
 	defaultConfig.versionTag = tag
 }
 
-type callOpt func(c *config)
+func SetRewriteQuery(enabled bool) {
+	defaultConfig.rewriteQuery = enabled
+}
 
-func WithTagName(tag string) callOpt {
+func WithTagName(tag string) func(c *config) {
 	return func(c *config) {
 		c.tagName = tag
 	}
 }
 
-func WithEnableOptimisticLock(enabled bool) callOpt {
+func WithEnableOptimisticLock(enabled bool) func(c *config) {
 	return func(c *config) {
 		c.enableOptimisticLock = enabled
 	}
 }
 
-func WithVersionTag(tag string) callOpt {
+func WithVersionTag(tag string) func(c *config) {
 	return func(c *config) {
 		c.versionTag = tag
+	}
+}
+
+func WithRewriteQuery(enabled bool) func(c *config) {
+	return func(c *config) {
+		c.rewriteQuery = enabled
 	}
 }

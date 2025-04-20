@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -65,6 +66,11 @@ func Test_Init(t *testing.T) {
 	 INSERT INTO userinfo(username, department, created) VALUES(?,?,?)
 	 `, "astaxie", "研发部门", nil)
 	assert.Nil(t, err)
+
+	_, err = db.Exec(`
+	 INSERT INTO userinfo(username, department, created) VALUES(?,?,?)
+	 `, "qqqq", "研发部门", nil)
+	assert.Nil(t, err)
 }
 
 func Test_RawUse(t *testing.T) {
@@ -88,7 +94,7 @@ func Test_RawUse(t *testing.T) {
 func Test_GetOne(t *testing.T) {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	assert.Nil(t, err)
-
+	assert.Nil(t, err)
 	u, err := GetOne[UserInfo](context.Background(), db, "select * from userinfo where uid = ?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
@@ -132,4 +138,37 @@ func Test_GetOne_NestedStruct(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
 	fmt.Printf("%+v\n", u)
+}
+
+func Test_GetOne_Non_Struct(t *testing.T) {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	assert.Nil(t, err)
+	result, err := GetOne[int](context.Background(), db, "select * from userinfo where uid =?", 1)
+	assert.Nil(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, *result)
+}
+
+type testValuer []int64
+
+func (t testValuer) Value() (driver.Value, error) {
+	return t[0], nil
+}
+
+func Test_GetMany(t *testing.T) {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	assert.Nil(t, err)
+
+	users, err := GetMany[UserInfo](context.Background(), db, "select * from userinfo where uid in ?", []int{})
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(users))
+
+	users, err = GetMany[UserInfo](context.Background(), db, "select * from userinfo where uid not in ?", ([]int)(nil))
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(users))
+
+	users, err = GetMany[UserInfo](context.Background(), db, "select * from userinfo where uid in ? and department = ?", []int{1, 2}, "研发部门")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(users))
+
 }
