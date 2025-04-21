@@ -12,10 +12,13 @@ import (
 )
 
 type UserInfo struct {
-	Uid        int64      `orm:"uid"`
+	Uid int64 `orm:"uid"`
+	//Uid        int64      `orm:"uid,primary,autoincrement"`
 	Username   string     `orm:"username"`
 	Department string     `orm:"department"`
 	CreateAt   *time.Time `orm:"created"`
+
+	Leader *UserInfo // test circular reference
 }
 
 type CustomTagUserInfo struct {
@@ -136,6 +139,11 @@ func Test_GetOne_CustomTag_WithOpt(t *testing.T) {
 func Test_GetOne_NestedStruct(t *testing.T) {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	assert.Nil(t, err)
+
+	e, err := GetOne[TimedEntity](context.Background(), db, "select * from userinfo where uid =?", 1)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), e.Uid)
+
 	u, err := GetOne[NestedUserInfo](context.Background(), db, "select * from userinfo where uid =?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)

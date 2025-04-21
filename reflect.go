@@ -33,6 +33,13 @@ func indirect(v reflect.Value) reflect.Value {
 	return v
 }
 
+func indirectT(t reflect.Type) reflect.Type {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t
+}
+
 // extract a slice of interfaces from struct for sql.Rows.Scan to use
 func getColumnPlaceholder(conf *config, v reflect.Value, columns []string) []any {
 	if len(columns) == 0 {
@@ -40,11 +47,11 @@ func getColumnPlaceholder(conf *config, v reflect.Value, columns []string) []any
 	}
 
 	r := make([]interface{}, len(columns))
-	mapping := getColumnIndexMapping(conf, v)
+	mapping := getColumnIndexMapping(conf, v.Type())
 	for i, column := range columns {
 		indexes := mapping[column]
 		if len(indexes) > 0 {
-			f := v.FieldByIndex(indexes)
+			f := fieldByIndex(v, indexes)
 			r[i] = f.Addr().Interface()
 		} else {
 			r[i] = empty{}
@@ -54,24 +61,30 @@ func getColumnPlaceholder(conf *config, v reflect.Value, columns []string) []any
 	return r
 }
 
-func getColumnIndexMapping(conf *config, t reflect.Value) map[string][]int {
+func getColumnIndexMapping(conf *config, t reflect.Type) map[string][]int {
+	t = indirectT(t)
 	ret, ok := cache.Load(t)
 	if ok {
 		return ret.(map[string][]int)
 	}
 	mapping := make(map[string][]int)
-	walk(conf, t, nil, mapping)
+	visitedTypes := make(map[reflect.Type]struct{})
+	walk(conf, t, nil, mapping, visitedTypes)
 	cache.Store(t, mapping)
 	return mapping
 }
 
-func walk(conf *config, v reflect.Value, path []int, mapping map[string][]int) {
-	if v.Kind() != reflect.Struct {
+func walk(conf *config, t reflect.Type, path []int, mapping map[string][]int, visitedTypes map[reflect.Type]struct{}) {
+	if t.Kind() != reflect.Struct {
 		return
 	}
-	for i := 0; i < v.Type().NumField(); i++ {
-		f := v.Type().Field(i)
-		if f.PkgPath != "" {
+	if _, visited := visitedTypes[t]; visited {
+		return
+	}
+	visitedTypes[t] = struct{}{}
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if !f.IsExported() {
 			// skip unexported field
 			continue
 		}
@@ -86,11 +99,15 @@ func walk(conf *config, v reflect.Value, path []int, mapping map[string][]int) {
 				mapping[fieldName] = indexes
 			}
 		} else if isStructOrIndirectToStruct(f.Type) {
-			walk(conf, indirect(v.Field(i)), append(path, i), mapping)
+			walk(conf, indirectT(f.Type), append(path, i), mapping, visitedTypes)
 		}
 	}
 }
 
-func isSlice(v any) bool {
-	return reflect.TypeOf(v).Kind() == reflect.Slice
+func fieldByIndex(v reflect.Value, index []int) reflect.Value {
+	if len(index) == 0 {
+		return v
+	}
+	v = indirect(v)
+	return fieldByIndex(v.Field(index[0]), index[1:])
 }
