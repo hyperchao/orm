@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -94,11 +93,17 @@ func Test_RawUse(t *testing.T) {
 func Test_GetOne(t *testing.T) {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	assert.Nil(t, err)
-	assert.Nil(t, err)
 	u, err := GetOne[UserInfo](context.Background(), db, "select * from userinfo where uid = ?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
-	fmt.Printf("%+v\n", u)
+}
+
+func BenchmarkGetOne(b *testing.B) {
+	db, _ := sql.Open("sqlite3", "./foo.db")
+	for i := 0; i < b.N; i++ {
+		u, _ := GetOne[UserInfo](context.Background(), db, "select * from userinfo where uid in ?", []int64{1})
+		_ = u
+	}
 }
 
 func Test_GetOne_Pointer(t *testing.T) {
@@ -108,7 +113,6 @@ func Test_GetOne_Pointer(t *testing.T) {
 	u, err := GetOne[*UserInfo](context.Background(), db, "select * from userinfo where uid = ?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), (*u).Uid)
-	fmt.Printf("%+v\n", u)
 }
 
 func Test_GetOne_CustomTag(t *testing.T) {
@@ -118,7 +122,6 @@ func Test_GetOne_CustomTag(t *testing.T) {
 	u, err := GetOne[CustomTagUserInfo](context.Background(), db, "select * from userinfo where uid = ?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
-	fmt.Printf("%+v\n", u)
 	SetTagName("orm")
 }
 
@@ -128,7 +131,6 @@ func Test_GetOne_CustomTag_WithOpt(t *testing.T) {
 	u, err := GetOne[CustomTagUserInfo](context.Background(), db, "select * from userinfo where uid =?", 1, WithTagName("foobar"))
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
-	fmt.Printf("%+v\n", u)
 }
 
 func Test_GetOne_NestedStruct(t *testing.T) {
@@ -137,7 +139,6 @@ func Test_GetOne_NestedStruct(t *testing.T) {
 	u, err := GetOne[NestedUserInfo](context.Background(), db, "select * from userinfo where uid =?", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), u.Uid)
-	fmt.Printf("%+v\n", u)
 }
 
 func Test_GetOne_Non_Struct(t *testing.T) {

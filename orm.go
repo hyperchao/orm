@@ -25,7 +25,7 @@ func GetOne[T any](ctx context.Context, db db, query string, args ...any) (data 
 	}
 
 	if conf.rewriteQuery {
-		query, args = RewriteQueryAndArgs(query, args)
+		query, args = RewriteQueryAndArgs(query, args...)
 	}
 
 	rows, err := db.QueryContext(ctx, query, args...)
