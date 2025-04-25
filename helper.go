@@ -30,6 +30,7 @@ const (
 	separator   = ","
 	placeholder = "?"
 	quote       = "`"
+	equals      = `=`
 )
 
 var (
@@ -100,7 +101,7 @@ func RewriteQueryAndArgs(query string, args ...any) (rewrittenQuery string, expa
 		return query, args
 	}
 
-	queryParts := strings.Split(query, "?")
+	queryParts := strings.Split(query, placeholder)
 	sb := strings.Builder{}
 	for idx, part := range queryParts {
 		sb.WriteString(part)
@@ -114,7 +115,7 @@ func RewriteQueryAndArgs(query string, args ...any) (rewrittenQuery string, expa
 					sb.WriteString("(")
 					for i := 0; i < sv.Len(); i++ {
 						expandedArgs = append(expandedArgs, sv.Index(i).Interface())
-						sb.WriteString("?")
+						sb.WriteString(placeholder)
 						if i != sv.Len()-1 {
 							sb.WriteString(",")
 						}
@@ -123,7 +124,7 @@ func RewriteQueryAndArgs(query string, args ...any) (rewrittenQuery string, expa
 				}
 			} else {
 				expandedArgs = append(expandedArgs, args[idx])
-				sb.WriteString("?")
+				sb.WriteString(placeholder)
 			}
 		}
 	}
@@ -142,13 +143,45 @@ func parseInsertColumnsAndArgs(values tag.Values[columnAttr]) (columns []string,
 	for field, value := range values.Iter() {
 		if value.Meta().Attrs().Has(columnAttrAutoincrement) {
 			autoincrement = field
-		} else {
-			columns = append(columns, field)
-			args = append(args, value.Interface())
+			continue
 		}
+		columns = append(columns, field)
+		args = append(args, value.Interface())
 	}
 
 	return
+}
+
+func parseUpdateColumnsAndArgs(conf *config, values tag.Values[columnAttr]) (columns, wheres []string, args, wheresArgs []any, versionValue tag.Value[columnAttr]) {
+	if values.Len() == 0 {
+		return
+	}
+	columns = make([]string, 0, values.Len())
+	args = make([]any, 0, values.Len())
+	for field, value := range values.Iter() {
+		if value.Meta().Attrs().Has(columnAttrPrimary) {
+			wheres = append(wheres, field)
+			wheresArgs = append(wheresArgs, value.Interface())
+			continue
+		}
+		if conf.enableOptimisticLock && value.Meta().Attrs().Has(columnAttrOptimisticLock) && isCorrectVersionFieldType(value.Meta().Type()) {
+			versionValue = value
+			wheres = append(wheres, field)
+			wheresArgs = append(wheresArgs, value.Interface())
+
+			columns = append(columns, field)
+			args = append(args, value.Value().Int()+1)
+			continue
+		}
+		columns = append(columns, field)
+		args = append(args, value.Interface())
+	}
+
+	return
+}
+
+func isCorrectVersionFieldType(t reflect.Type) bool {
+	return t.Kind() == reflect.Int || t.Kind() == reflect.Int8 || t.Kind() == reflect.Int16 || t.Kind() == reflect.Int32 || t.Kind() == reflect.Int64
 }
 
 func generateInsertSQL(tableName string, columns []string, count int) string {
@@ -192,4 +225,54 @@ func writeSQLPlaceholders(sb *strings.Builder, n int) {
 		sb.WriteString(placeholder)
 	}
 	sb.WriteString(")")
+}
+
+func generateUpdateSQL(tableName string, columns, wheres []string) string {
+	sb := strings.Builder{}
+	sb.WriteString("UPDATE ")
+	sb.WriteString(tableName)
+	writeUpdateSetSQL(&sb, columns)
+	writeUpdateWhereSQL(&sb, wheres)
+	return sb.String()
+}
+
+func writeUpdateSetSQL(sb *strings.Builder, columns []string) {
+	if len(columns) == 0 {
+		return
+	}
+	sb.WriteString(" SET ")
+	sb.WriteString(quote)
+	sb.WriteString(columns[0])
+	sb.WriteString(quote)
+	sb.WriteString(equals)
+	sb.WriteString(placeholder)
+
+	for i := 1; i < len(columns); i++ {
+		sb.WriteString(separator)
+		sb.WriteString(quote)
+		sb.WriteString(columns[i])
+		sb.WriteString(quote)
+		sb.WriteString(equals)
+		sb.WriteString(placeholder)
+	}
+}
+
+func writeUpdateWhereSQL(sb *strings.Builder, wheres []string) {
+	if len(wheres) == 0 {
+		return
+	}
+	sb.WriteString(" WHERE ")
+	sb.WriteString(quote)
+	sb.WriteString(wheres[0])
+	sb.WriteString(quote)
+	sb.WriteString(equals)
+	sb.WriteString(placeholder)
+	for i := 1; i < len(wheres); i++ {
+		sb.WriteString(" AND ")
+		sb.WriteString(quote)
+		sb.WriteString(wheres[i])
+		sb.WriteString(quote)
+		sb.WriteString(equals)
+		sb.WriteString(placeholder)
+	}
 }

@@ -22,7 +22,7 @@ func TestParser_Parse_Set_Interface(t *testing.T) {
 		*InnerModel
 		Score float32 `test:"score"`
 
-		Other *OuterModel
+		Other *OuterModel // test circular reference
 	}
 
 	parser := NewParser(parseFunc)

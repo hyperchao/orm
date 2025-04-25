@@ -44,13 +44,13 @@ func WithTagName(tag string) func(c *config) {
 	}
 }
 
-func WithEnableOptimisticLock(enabled bool) func(c *config) {
+func EnableOptimisticLock(enabled bool) func(c *config) {
 	return func(c *config) {
 		c.enableOptimisticLock = enabled
 	}
 }
 
-func WithRewriteQuery(enabled bool) func(c *config) {
+func EnableRewriteQuery(enabled bool) func(c *config) {
 	return func(c *config) {
 		c.rewriteQuery = enabled
 	}

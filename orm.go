@@ -3,6 +3,11 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"fmt"
+)
+
+var (
+	ErrConcurrencyUpdate = fmt.Errorf("concurrency update")
 )
 
 var (
@@ -149,6 +154,36 @@ func InsertMany[T any](ctx context.Context, tableName string, db db, data []T, o
 		_, err := db.ExecContext(ctx, query, args...)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func UpdateOne(ctx context.Context, tableName string, db db, data any, opts ...func(*config)) error {
+	conf := defaultConfig
+	for _, opt := range opts {
+		opt(&conf)
+	}
+
+	values := tagParser.Parse(conf.tagName, data)
+	updateColumns, whereColumns, updateArgs, whereArgs, versionValue := parseUpdateColumnsAndArgs(&conf, values)
+	query := generateUpdateSQL(tableName, updateColumns, whereColumns)
+	args := append(updateArgs, whereArgs...)
+	result, err := db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if versionValue != nil {
+		if rowsAffected == 0 {
+			return ErrConcurrencyUpdate
+		}
+		if versionValue.CanSet() {
+			versionValue.Set(versionValue.Value().Int() + 1)
 		}
 	}
 

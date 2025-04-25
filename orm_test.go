@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -15,8 +16,7 @@ type UserInfo struct {
 	Username   string     `orm:"username"`
 	Department string     `orm:"department"`
 	CreateAt   *time.Time `orm:"created"`
-
-	Leader *UserInfo // test circular reference
+	Version    int64      `orm:"version,version"`
 }
 
 type CustomTagUserInfo struct {
@@ -34,7 +34,8 @@ func initDb(t *testing.T) *sql.DB {
 	 	uid INTEGER PRIMARY KEY AUTOINCREMENT,
 	 	username VARCHAR(64) NULL,
 	 	department VARCHAR(64) NULL,
-	 	created DATE NULL
+	 	created DATE NULL,
+		version INTEGER NOT NULL DEFAULT 0
 	 )`)
 
 	assert.Nil(t, err)
@@ -204,4 +205,38 @@ func Test_InsertMany(t *testing.T) {
 	userinfos, err = GetMany[UserInfo](context.Background(), db, "select * from userinfo")
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(userinfos))
+}
+
+func Test_UpdateOne(t *testing.T) {
+	db := initDb(t)
+	userinfo := &UserInfo{
+		Username:   "astaxie",
+		Department: "<UNK>",
+		CreateAt:   nil,
+	}
+	err := InsertOne(context.Background(), "userinfo", db, userinfo)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), userinfo.Version)
+
+	userinfo.Username = "astaxie2"
+	now := time.Now()
+	userinfo.CreateAt = &now
+
+	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(false))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), userinfo.Version)
+
+	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(true))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), userinfo.Version)
+
+	userinfo, err = GetOne[UserInfo](context.Background(), db, "select * from userinfo")
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), userinfo.Version)
+	assert.Equal(t, "astaxie2", userinfo.Username)
+	assert.Equal(t, now.Unix(), userinfo.CreateAt.Unix())
+
+	userinfo.Version -= 1
+	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(true))
+	assert.True(t, errors.Is(err, ErrConcurrencyUpdate))
 }
