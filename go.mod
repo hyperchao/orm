@@ -1,10 +1,11 @@
 module github.com/hyperchao/orm
 
-go 1.21.6
+go 1.24.2
 
-require github.com/mattn/go-sqlite3 v1.14.22
-
-require github.com/stretchr/testify v1.10.0
+require (
+	github.com/mattn/go-sqlite3 v1.14.28
+	github.com/stretchr/testify v1.10.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

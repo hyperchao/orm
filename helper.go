@@ -2,10 +2,45 @@ package orm
 
 import (
 	"database/sql/driver"
+	"github.com/hyperchao/orm/tag"
 	"reflect"
 	"slices"
 	"strings"
 )
+
+var (
+	tagParser = tag.NewParser(func(tagValue string) (field string, attributes []string) {
+		// example. `orm:"id,primary,autoincrement"`
+		// return "id",  []string{"primary", "autoincrement"}
+		parts := strings.Split(tagValue, ",")
+		return parts[0], parts[1:]
+	})
+)
+
+type empty struct{}
+
+func (empty) Scan(any) error {
+	return nil
+}
+
+// extract a slice of interfaces from struct for sql.Rows.Scan to use
+func getColumnPlaceholder(conf *config, val any, columns []string) []any {
+	if len(columns) == 0 {
+		return nil
+	}
+
+	values := tagParser.Parse(conf.tagName, val)
+
+	r := make([]interface{}, len(columns))
+	for i, col := range columns {
+		if values.Contains(col) {
+			r[i] = values.Get(col).Addr()
+		} else {
+			r[i] = empty{}
+		}
+	}
+	return r
+}
 
 // RewriteQueryAndArgs transform a slice argument to a list of arguments and rewrite the "?" in query to "(?,?,...)"
 // so we can write sql like this:

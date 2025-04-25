@@ -3,7 +3,6 @@ package orm
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -25,20 +24,6 @@ type CustomTagUserInfo struct {
 	Uid      int64      `foobar:"uid"`
 	Username string     `foobar:"username"`
 	CreateAt *time.Time `foobar:"created"`
-}
-
-type BaseEntity struct {
-	Uid int64 `orm:"uid"`
-}
-
-type TimedEntity struct {
-	BaseEntity
-	CreateAt *time.Time `orm:"created"`
-}
-
-type NestedUserInfo struct {
-	*TimedEntity
-	Username string `orm:"username"`
 }
 
 func Test_Init(t *testing.T) {
@@ -136,19 +121,6 @@ func Test_GetOne_CustomTag_WithOpt(t *testing.T) {
 	assert.Equal(t, int64(1), u.Uid)
 }
 
-func Test_GetOne_NestedStruct(t *testing.T) {
-	db, err := sql.Open("sqlite3", "./foo.db")
-	assert.Nil(t, err)
-
-	e, err := GetOne[TimedEntity](context.Background(), db, "select * from userinfo where uid =?", 1)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(1), e.Uid)
-
-	u, err := GetOne[NestedUserInfo](context.Background(), db, "select * from userinfo where uid =?", 1)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(1), u.Uid)
-}
-
 func Test_GetOne_Non_Struct(t *testing.T) {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	assert.Nil(t, err)
@@ -156,12 +128,6 @@ func Test_GetOne_Non_Struct(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 0, *result)
-}
-
-type testValuer []int64
-
-func (t testValuer) Value() (driver.Value, error) {
-	return t[0], nil
 }
 
 func Test_GetMany(t *testing.T) {

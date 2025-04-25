@@ -3,7 +3,6 @@ package orm
 import (
 	"context"
 	"database/sql"
-	"reflect"
 )
 
 var (
@@ -44,7 +43,7 @@ func GetOne[T any](ctx context.Context, db db, query string, args ...any) (data 
 	}
 
 	var obj T
-	placeholders := getColumnPlaceholder(&conf, reflect.ValueOf(&obj), cols)
+	placeholders := getColumnPlaceholder(&conf, &obj, cols)
 	err = rows.Scan(placeholders...)
 	if err != nil {
 		return nil, err
@@ -80,7 +79,7 @@ func GetMany[T any](ctx context.Context, db db, query string, args ...any) (data
 	data = make([]*T, 0)
 	for rows.Next() {
 		var obj T
-		placeholders := getColumnPlaceholder(&conf, reflect.ValueOf(&obj), cols)
+		placeholders := getColumnPlaceholder(&conf, &obj, cols)
 		err = rows.Scan(placeholders...)
 		if err != nil {
 			return nil, err
