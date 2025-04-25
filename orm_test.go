@@ -11,8 +11,7 @@ import (
 )
 
 type UserInfo struct {
-	Uid int64 `orm:"uid"`
-	//Uid        int64      `orm:"uid,primary,autoincrement"`
+	Uid        int64      `orm:"uid,primary,autoincrement"`
 	Username   string     `orm:"username"`
 	Department string     `orm:"department"`
 	CreateAt   *time.Time `orm:"created"`
@@ -24,6 +23,23 @@ type CustomTagUserInfo struct {
 	Uid      int64      `foobar:"uid"`
 	Username string     `foobar:"username"`
 	CreateAt *time.Time `foobar:"created"`
+}
+
+func initDb(t *testing.T) *sql.DB {
+	db, err := sql.Open("sqlite3", ":memory:")
+	assert.Nil(t, err)
+
+	_, err = db.Exec(`
+	CREATE TABLE userinfo (
+	 	uid INTEGER PRIMARY KEY AUTOINCREMENT,
+	 	username VARCHAR(64) NULL,
+	 	department VARCHAR(64) NULL,
+	 	created DATE NULL
+	 )`)
+
+	assert.Nil(t, err)
+
+	return db
 }
 
 func Test_Init(t *testing.T) {
@@ -146,4 +162,46 @@ func Test_GetMany(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(users))
 
+}
+
+func Test_InsertOne(t *testing.T) {
+	db := initDb(t)
+	userinfo := UserInfo{
+		Username:   "astaxie",
+		Department: "<UNK>",
+		CreateAt:   nil,
+	}
+	err := InsertOne(context.Background(), "userinfo", db, userinfo)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), userinfo.Uid)
+	assert.Equal(t, userinfo.Username, "astaxie")
+	assert.Equal(t, userinfo.Department, "<UNK>")
+	assert.Nil(t, userinfo.CreateAt)
+
+	err = InsertOne(context.Background(), "userinfo", db, &userinfo)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(2), userinfo.Uid)
+
+	userinfo2, err := GetOne[UserInfo](context.Background(), db, "select * from userinfo where uid = ?", 2)
+	assert.Nil(t, err)
+	assert.Equal(t, userinfo.Uid, userinfo2.Uid)
+	assert.Equal(t, userinfo.Username, userinfo2.Username)
+	assert.Equal(t, userinfo.Department, userinfo2.Department)
+	assert.Equal(t, userinfo.CreateAt, userinfo2.CreateAt)
+}
+
+func Test_InsertMany(t *testing.T) {
+	db := initDb(t)
+	userinfo := &UserInfo{
+		Username:   "astaxie",
+		Department: "<UNK>",
+		CreateAt:   nil,
+	}
+	userinfos := []*UserInfo{userinfo, userinfo, userinfo}
+	err := InsertMany(context.Background(), "userinfo", db, userinfos, WithBatchSize(2))
+	assert.Nil(t, err)
+
+	userinfos, err = GetMany[UserInfo](context.Background(), db, "select * from userinfo")
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(userinfos))
 }

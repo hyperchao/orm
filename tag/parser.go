@@ -68,10 +68,10 @@ func (p *Parser[T]) traverse(
 			copy(indices, path)
 			indices = append(indices, i)
 			metas[name] = &meta[T]{
-				Name:    name,
-				Attrs:   attrs,
-				Indices: indices,
-				Type:    field.Type,
+				name:    name,
+				attrs:   attrs,
+				indices: indices,
+				typ:     field.Type,
 			}
 		} else if isStructOrIndirectToStruct(field.Type) {
 			p.traverse(tagName, indirectT(field.Type), append(path, i), metas, visitedTypes)

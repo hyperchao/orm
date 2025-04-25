@@ -8,30 +8,59 @@ import (
 	"strings"
 )
 
-var (
-	tagParser = tag.NewParser(func(tagValue string) (field string, attributes []string) {
-		// example. `orm:"id,primary,autoincrement"`
-		// return "id",  []string{"primary", "autoincrement"}
-		parts := strings.Split(tagValue, ",")
-		return parts[0], parts[1:]
-	})
-)
-
 type empty struct{}
 
 func (empty) Scan(any) error {
 	return nil
 }
 
+type columnAttr int
+
+const (
+	columnAttrPrimary columnAttr = 1 << iota
+	columnAttrAutoincrement
+	columnAttrOptimisticLock
+)
+
+func (c columnAttr) Has(attr columnAttr) bool {
+	return c&attr != 0
+}
+
+const (
+	separator   = ","
+	placeholder = "?"
+	quote       = "`"
+)
+
+var (
+	tagParser = tag.NewParser(func(tagValue string) (field string, attributes columnAttr) {
+		// tagValue example. `orm:"id,primary,autoincrement"`
+		parts := strings.Split(tagValue, ",")
+		field = parts[0]
+		for _, attr := range parts[1:] {
+			if strings.TrimSpace(attr) == TagPrimaryKey {
+				attributes |= columnAttrPrimary
+			}
+			if strings.TrimSpace(attr) == TagAutoIncrement {
+				attributes |= columnAttrAutoincrement
+			}
+			if strings.TrimSpace(attr) == TagVersion {
+				attributes |= columnAttrOptimisticLock
+			}
+		}
+		return
+	})
+)
+
 // extract a slice of interfaces from struct for sql.Rows.Scan to use
-func getColumnPlaceholder(conf *config, val any, columns []string) []any {
+func getColumnDest(conf *config, val any, columns []string) []any {
 	if len(columns) == 0 {
 		return nil
 	}
 
 	values := tagParser.Parse(conf.tagName, val)
 
-	r := make([]interface{}, len(columns))
+	r := make([]any, len(columns))
 	for i, col := range columns {
 		if values.Contains(col) {
 			r[i] = values.Get(col).Addr()
@@ -101,4 +130,66 @@ func RewriteQueryAndArgs(query string, args ...any) (rewrittenQuery string, expa
 
 	rewrittenQuery = sb.String()
 	return
+}
+
+func parseInsertColumnsAndArgs(values tag.Values[columnAttr]) (columns []string, autoincrement string, args []any) {
+	if values.Len() == 0 {
+		return
+	}
+
+	columns = make([]string, 0, values.Len())
+	args = make([]any, 0, values.Len())
+	for field, value := range values.Iter() {
+		if value.Meta().Attrs().Has(columnAttrAutoincrement) {
+			autoincrement = field
+		} else {
+			columns = append(columns, field)
+			args = append(args, value.Interface())
+		}
+	}
+
+	return
+}
+
+func generateInsertSQL(tableName string, columns []string, count int) string {
+	sb := strings.Builder{}
+	sb.WriteString("INSERT INTO ")
+	sb.WriteString(tableName)
+	writeSQLColumns(&sb, columns)
+	sb.WriteString(" VALUES ")
+	writeSQLPlaceholders(&sb, len(columns))
+	for count > 1 {
+		sb.WriteString(",")
+		writeSQLPlaceholders(&sb, len(columns))
+		count--
+	}
+	return sb.String()
+}
+
+func writeSQLColumns(sb *strings.Builder, slice []string) {
+	if len(slice) == 0 {
+		return
+	}
+	sb.WriteString("(")
+	sb.WriteString(slice[0])
+	for i := 1; i < len(slice); i++ {
+		sb.WriteString(separator)
+		sb.WriteString(quote)
+		sb.WriteString(slice[i])
+		sb.WriteString(quote)
+	}
+	sb.WriteString(")")
+}
+
+func writeSQLPlaceholders(sb *strings.Builder, n int) {
+	if n <= 0 {
+		return
+	}
+	sb.WriteString("(")
+	sb.WriteString(placeholder)
+	for i := 1; i < n; i++ {
+		sb.WriteString(separator)
+		sb.WriteString(placeholder)
+	}
+	sb.WriteString(")")
 }

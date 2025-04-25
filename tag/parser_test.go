@@ -36,11 +36,11 @@ func TestParser_Parse_Set_Interface(t *testing.T) {
 	modelValues = parser.Parse("test", &innerModel)
 	assert.Equal(t, 2, modelValues.Len())
 	assert.Nil(t, modelValues.Get("not exist"))
-	assert.Equal(t, "name", modelValues.Get("name").Name())
-	assert.Equal(t, "name", modelValues.Get("name").Attrs())
-	assert.Equal(t, reflect.String, modelValues.Get("name").Type().Kind())
+	assert.Equal(t, "name", modelValues.Get("name").Meta().Name())
+	assert.Equal(t, "name", modelValues.Get("name").Meta().Attrs())
+	assert.Equal(t, reflect.String, modelValues.Get("name").Meta().Type().Kind())
 	for name, value := range modelValues.Iter() {
-		assert.Equal(t, name, value.Name())
+		assert.Equal(t, name, value.Meta().Name())
 	}
 
 	nameVal := modelValues.Get("name")

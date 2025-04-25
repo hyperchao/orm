@@ -10,6 +10,7 @@ type config struct {
 	tagName              string
 	enableOptimisticLock bool
 	rewriteQuery         bool
+	batchSize            int
 }
 
 var (
@@ -17,6 +18,7 @@ var (
 		tagName:              "orm",
 		enableOptimisticLock: false,
 		rewriteQuery:         true,
+		batchSize:            200,
 	}
 )
 
@@ -30,6 +32,10 @@ func SetEnableOptimisticLock(enabled bool) {
 
 func SetRewriteQuery(enabled bool) {
 	defaultConfig.rewriteQuery = enabled
+}
+
+func SetBatchSize(batchSize int) {
+	defaultConfig.batchSize = batchSize
 }
 
 func WithTagName(tag string) func(c *config) {
@@ -47,5 +53,11 @@ func WithEnableOptimisticLock(enabled bool) func(c *config) {
 func WithRewriteQuery(enabled bool) func(c *config) {
 	return func(c *config) {
 		c.rewriteQuery = enabled
+	}
+}
+
+func WithBatchSize(batchSize int) func(c *config) {
+	return func(c *config) {
+		c.batchSize = batchSize
 	}
 }

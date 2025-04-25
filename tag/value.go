@@ -6,24 +6,42 @@ import (
 )
 
 var (
+	_ Meta[any]   = (*meta[any])(nil)
 	_ Value[any]  = (*value[any])(nil)
 	_ Values[any] = (*values[any])(nil)
 )
 
 type meta[T any] struct {
-	Name    string
-	Attrs   T
-	Indices []int
-	Type    reflect.Type
+	name    string
+	attrs   T
+	indices []int
+	typ     reflect.Type
 }
 
-type Value[T any] interface {
+type Meta[T any] interface {
 	Name() string
 	Attrs() T
 	Type() reflect.Type
+}
+
+func (m *meta[T]) Name() string {
+	return m.name
+}
+
+func (m *meta[T]) Attrs() T {
+	return m.attrs
+}
+
+func (m *meta[T]) Type() reflect.Type {
+	return m.typ
+}
+
+type Value[T any] interface {
+	Meta() Meta[T]
 	Interface() any
 	Addr() any
 	Value() reflect.Value
+	CanSet() bool
 	Set(any any)
 }
 
@@ -77,16 +95,8 @@ type value[T any] struct {
 	rootValue reflect.Value // root rootValue
 }
 
-func (v *value[T]) Name() string {
-	return v.meta.Name
-}
-
-func (v *value[T]) Attrs() T {
-	return v.meta.Attrs
-}
-
-func (v *value[T]) Type() reflect.Type {
-	return v.meta.Type
+func (v *value[T]) Meta() Meta[T] {
+	return v.meta
 }
 
 func (v *value[T]) Interface() any {
@@ -98,11 +108,15 @@ func (v *value[T]) Addr() any {
 }
 
 func (v *value[T]) Value() reflect.Value {
-	return fieldByIndex(v.rootValue, v.meta.Indices)
+	return fieldByIndex(v.rootValue, v.meta.indices)
+}
+
+func (v *value[T]) CanSet() bool {
+	return v.Value().CanSet()
 }
 
 func (v *value[T]) Set(val any) {
-	switch v.meta.Type.Kind() {
+	switch v.meta.typ.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		v.setInt(val)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -214,9 +228,9 @@ func (v *value[T]) fallbackSet(val any) {
 		return
 	}
 
-	if !rv.Type().AssignableTo(v.meta.Type) {
-		if rv.CanConvert(v.meta.Type) {
-			rv = rv.Convert(v.meta.Type)
+	if !rv.Type().AssignableTo(v.meta.typ) {
+		if rv.CanConvert(v.meta.typ) {
+			rv = rv.Convert(v.meta.typ)
 		}
 	}
 	// always set, let it panic if set failed
