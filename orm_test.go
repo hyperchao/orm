@@ -222,11 +222,11 @@ func Test_UpdateOne(t *testing.T) {
 	now := time.Now()
 	userinfo.CreateAt = &now
 
-	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(false))
+	err = UpdateOne(context.Background(), db, "userinfo", userinfo, EnableOptimisticLock(false))
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), userinfo.Version)
 
-	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(true))
+	err = UpdateOne(context.Background(), db, "userinfo", userinfo, EnableOptimisticLock(true))
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1), userinfo.Version)
 
@@ -237,6 +237,6 @@ func Test_UpdateOne(t *testing.T) {
 	assert.Equal(t, now.Unix(), userinfo.CreateAt.Unix())
 
 	userinfo.Version -= 1
-	err = UpdateOne(context.Background(), "userinfo", db, userinfo, EnableOptimisticLock(true))
+	err = UpdateOne(context.Background(), db, "userinfo", userinfo, EnableOptimisticLock(true))
 	assert.True(t, errors.Is(err, ErrConcurrencyUpdate))
 }

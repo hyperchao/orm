@@ -160,7 +160,7 @@ func InsertMany[T any](ctx context.Context, db DB, tableName string, data []T, o
 	return nil
 }
 
-func UpdateOne(ctx context.Context, tableName string, db DB, data any, opts ...func(*config)) error {
+func UpdateOne(ctx context.Context, db DB, tableName string, data any, opts ...func(*config)) error {
 	conf := defaultConfig
 	for _, opt := range opts {
 		opt(&conf)
