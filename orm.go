@@ -96,7 +96,7 @@ func GetMany[T any](ctx context.Context, db DB, query string, args ...any) ([]*T
 	return data, nil
 }
 
-func InsertOne(ctx context.Context, tableName string, db DB, data any, opts ...func(*config)) error {
+func InsertOne(ctx context.Context, db DB, tableName string, data any, opts ...func(*config)) error {
 	conf := defaultConfig
 	for _, opt := range opts {
 		opt(&conf)
@@ -121,7 +121,7 @@ func InsertOne(ctx context.Context, tableName string, db DB, data any, opts ...f
 	return nil
 }
 
-func InsertMany[T any](ctx context.Context, tableName string, db DB, data []T, opts ...func(*config)) error {
+func InsertMany[T any](ctx context.Context, db DB, tableName string, data []T, opts ...func(*config)) error {
 	if len(data) == 0 {
 		return nil
 	}

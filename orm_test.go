@@ -172,14 +172,14 @@ func Test_InsertOne(t *testing.T) {
 		Department: "<UNK>",
 		CreateAt:   nil,
 	}
-	err := InsertOne(context.Background(), "userinfo", db, userinfo)
+	err := InsertOne(context.Background(), db, "userinfo", userinfo)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), userinfo.Uid)
 	assert.Equal(t, userinfo.Username, "astaxie")
 	assert.Equal(t, userinfo.Department, "<UNK>")
 	assert.Nil(t, userinfo.CreateAt)
 
-	err = InsertOne(context.Background(), "userinfo", db, &userinfo)
+	err = InsertOne(context.Background(), db, "userinfo", &userinfo)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(2), userinfo.Uid)
 
@@ -199,7 +199,7 @@ func Test_InsertMany(t *testing.T) {
 		CreateAt:   nil,
 	}
 	userinfos := []*UserInfo{userinfo, userinfo, userinfo}
-	err := InsertMany(context.Background(), "userinfo", db, userinfos, WithBatchSize(2))
+	err := InsertMany(context.Background(), db, "userinfo", userinfos, WithBatchSize(2))
 	assert.Nil(t, err)
 
 	userinfos, err = GetMany[UserInfo](context.Background(), db, "select * from userinfo")
@@ -214,7 +214,7 @@ func Test_UpdateOne(t *testing.T) {
 		Department: "<UNK>",
 		CreateAt:   nil,
 	}
-	err := InsertOne(context.Background(), "userinfo", db, userinfo)
+	err := InsertOne(context.Background(), db, "userinfo", userinfo)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), userinfo.Version)
 
