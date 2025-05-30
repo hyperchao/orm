@@ -11,18 +11,18 @@ var (
 )
 
 var (
-	_ db = (*sql.DB)(nil)
-	_ db = (*sql.Tx)(nil)
+	_ DB = (*sql.DB)(nil)
+	_ DB = (*sql.Tx)(nil)
 )
 
-type db interface {
+type DB interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 // GetOne execute query and get one result
 // query and args may be rewritten. see [RewriteQueryAndArgs] for detail
-func GetOne[T any](ctx context.Context, db db, query string, args ...any) (*T, error) {
+func GetOne[T any](ctx context.Context, db DB, query string, args ...any) (*T, error) {
 	conf := defaultConfig
 	args, opts := parseArgs(args...)
 	for _, opt := range opts {
@@ -60,7 +60,7 @@ func GetOne[T any](ctx context.Context, db db, query string, args ...any) (*T, e
 
 // GetMany execute query and get all result
 // query and args may be rewritten. see [RewriteQueryAndArgs] for detail
-func GetMany[T any](ctx context.Context, db db, query string, args ...any) ([]*T, error) {
+func GetMany[T any](ctx context.Context, db DB, query string, args ...any) ([]*T, error) {
 	conf := defaultConfig
 	args, opts := parseArgs(args...)
 	for _, opt := range opts {
@@ -96,7 +96,7 @@ func GetMany[T any](ctx context.Context, db db, query string, args ...any) ([]*T
 	return data, nil
 }
 
-func InsertOne(ctx context.Context, tableName string, db db, data any, opts ...func(*config)) error {
+func InsertOne(ctx context.Context, tableName string, db DB, data any, opts ...func(*config)) error {
 	conf := defaultConfig
 	for _, opt := range opts {
 		opt(&conf)
@@ -121,7 +121,7 @@ func InsertOne(ctx context.Context, tableName string, db db, data any, opts ...f
 	return nil
 }
 
-func InsertMany[T any](ctx context.Context, tableName string, db db, data []T, opts ...func(*config)) error {
+func InsertMany[T any](ctx context.Context, tableName string, db DB, data []T, opts ...func(*config)) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -160,7 +160,7 @@ func InsertMany[T any](ctx context.Context, tableName string, db db, data []T, o
 	return nil
 }
 
-func UpdateOne(ctx context.Context, tableName string, db db, data any, opts ...func(*config)) error {
+func UpdateOne(ctx context.Context, tableName string, db DB, data any, opts ...func(*config)) error {
 	conf := defaultConfig
 	for _, opt := range opts {
 		opt(&conf)
